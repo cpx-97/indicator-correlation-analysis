@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>指标相关性 · 因果性分析平台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#ffffff; --ink:#1f2329; --ink2:#5a6270; --muted:#8a919f;
+    --line:#e5e6eb; --brand:#bc0008; --brand2:#023985; --up:#c62828; --down:#2e7d32;
+    --radius:10px; --shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px 20px 60px}
+  header{background:linear-gradient(135deg,var(--brand2),#0a4a9e);color:#fff;
+    border-radius:var(--radius);padding:22px 26px;margin-bottom:18px;
+    box-shadow:0 4px 16px rgba(2,57,133,.18)}
+  header h1{font-size:20px;font-weight:600;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+  header h1 .dot{width:8px;height:8px;background:#ffb300;border-radius:50%;box-shadow:0 0 0 4px rgba(255,179,0,.22)}
+  header p{font-size:13px;opacity:.86;margin-top:6px}
+  .console{background:var(--panel);border-radius:var(--radius);padding:20px 24px;
+    box-shadow:var(--shadow);margin-bottom:18px}
+  .row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+  .field{flex:1;min-width:230px}
+  .field label{display:block;font-size:12px;color:var(--ink2);font-weight:600;margin-bottom:7px;letter-spacing:.3px}
+  .field label .tag{display:inline-block;background:rgba(188,0,8,.1);color:var(--brand);
+    padding:1px 7px;border-radius:4px;font-size:11px;margin-left:6px;font-weight:500}
+  select,input[type=text]{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:8px;font-size:14px;background:#fff;color:var(--ink);font-family:inherit;
+    transition:border-color .15s,box-shadow .15s;outline:none}
+  select:focus,input[type=text]:focus{border-color:var(--brand2);box-shadow:0 0 0 3px rgba(2,57,133,.1)}
+  .btn{padding:10px 26px;border:none;border-radius:8px;background:var(--brand);color:#fff;
+    font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+    transition:transform .12s,box-shadow .12s,opacity .15s;white-space:nowrap}
+  .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(188,0,8,.28)}
+  .btn:active:not(:disabled){transform:translateY(0)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--brand2);border:1px solid var(--line)}
+  .btn.ghost:hover:not(:disabled){box-shadow:0 4px 12px rgba(2,57,133,.14)}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.7}
+  .hint code{background:#f0f2f5;padding:1px 6px;border-radius:4px;font-size:11.5px;color:var(--ink2)}
+  .presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line)}
+  .presets span{font-size:12px;color:var(--muted);align-self:center;margin-right:4px}
+  .chip{padding:6px 13px;background:#f4f6fa;border:1px solid var(--line);border-radius:16px;
+    font-size:12.5px;color:var(--ink2);cursor:pointer;transition:all .15s;font-family:inherit}
+  .chip:hover{background:var(--brand2);color:#fff;border-color:var(--brand2)}
+  .status{padding:11px 16px;border-radius:8px;font-size:13px;margin-bottom:18px;display:none;align-items:center;gap:9px}
+  .status.show{display:flex}
+  .status.loading{background:#eef4fc;color:var(--brand2);border:1px solid #cddff5}
+  .status.err{background:#fdeeee;color:#a11;border:1px solid #f5c6c6}
+  .status.ok{background:#eefaf0;color:#256d33;border:1px solid #c3e8cb}
+  .spinner{width:14px;height:14px;border:2px solid rgba(2,57,133,.25);border-top-color:var(--brand2);
+    border-radius:50%;animation:spin .7s linear infinite;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .verdict{background:linear-gradient(135deg,#fff,var(--panel));border-radius:var(--radius);
+    padding:22px 26px;box-shadow:var(--shadow);margin-bottom:18px;border-left:5px solid var(--brand2)}
+  .verdict h2{font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .verdict h2 .ic{width:24px;height:24px;border-radius:6px;background:rgba(2,57,133,.1);
+    display:grid;place-items:center;font-size:13px}
+  .vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .vitem{background:#fafbfc;border:1px solid var(--line);border-radius:9px;padding:14px 16px}
+  .vitem .k{font-size:12px;color:var(--muted);margin-bottom:5px}
+  .vitem .v{font-size:20px;font-weight:600;letter-spacing:-.3px;line-height:1.25}
+  .vitem .d{font-size:12px;color:var(--ink2);margin-top:4px}
+  .vitem .v.good{color:var(--down)} .vitem .v.bad{color:var(--up)} .vitem .v.neutral{color:var(--ink)}
+  .vtext{margin-top:16px;padding:14px 16px;background:#f7f9fc;border-radius:9px;
+    font-size:13.5px;line-height:1.85;color:var(--ink2)}
+  .vtext b{color:var(--ink)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+  .card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px}
+  .card h3{font-size:14.5px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .card h3::before{content:"";width:3px;height:14px;background:var(--brand);border-radius:2px}
+  .card .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .chart{width:100%;height:340px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#fafbfc;font-weight:600;color:var(--ink2);font-size:12px;letter-spacing:.4px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  .sig{color:var(--down);font-weight:600} .nsig{color:var(--muted)}
+  footer{text-align:center;font-size:12px;color:var(--muted);padding:24px 0 0;line-height:1.9}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="dot"></span>指标相关性 · 因果性分析平台</h1>
+    <p>输入两个指标编码 → 拉取时间序列 → 多维度相关性 / 因果性检验 → 交互式可视化</p>
+  </header>
+  <div class="console">
+    <div class="row">
+      <div class="field">
+        <label for="selA">指标 A<span class="tag">品种 | 地区</span></label>
+        <select id="selA"></select>
+      </div>
+      <div class="field">
+        <label for="selB">指标 B<span class="tag">品种 | 地区</span></label>
+        <select id="selB"></select>
+      </div>
+      <div class="field" style="flex:0 0 150px">
+        <label for="selLag">Granger 滞后阶数</label>
+        <select id="selLag">
+          <option value="1">1 阶</option>
+          <option value="2">2 阶</option>
+          <option value="3">3 阶</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" id="btnRun">开始分析</button>
+        <button class="btn ghost" id="btnReset">重置</button>
+      </div>
+    </div>
+    <div class="presets" id="presets"><span>快速对比：</span></div>
+    <div class="hint">
+      指标编码格式 <code>品种|地区</code>（如 <code>螺纹钢|全国</code>）。数据源为 Mysteel MBI 接口，浏览器跨域直连，<b>数据不出浏览器</b>。
+      样本为周度序列，实际参与计算的是两条序列的<b>日期交集</b>。
+    </div>
+  </div>
+  <div class="status loading" id="status"><span class="spinner"></span><span id="statusText">正在拉取数据…</span></div>
+  <div id="results" style="display:none">
+    <div class="verdict" id="verdict"></div>
+    <div class="grid2">
+      <div class="card">
+        <h3>双序列走势对比</h3>
+        <div class="sub">双 Y 轴对齐时间轴，真实数据与预测数据分段展示</div>
+        <div class="chart" id="chart1"></div>
+      </div>
+      <div class="card">
+        <h3>散点与回归线</h3>
+        <div class="sub">Pearson r 与最小二乘拟合 R²</div>
+        <div class="chart" id="chart2"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>滞后相关曲线</h3>
+        <div class="sub">lag&gt;0 表示指标 A 领先指标 B，峰值位置提示最优领先/滞后关系</div>
+        <div class="chart" id="chart3"></div>
+      </div>
+      <div class="card">
+        <h3>滚动相关</h3>
+        <div class="sub">窗口 4 期的滚动 Pearson r，观察相关性的时变稳定性</div>
+        <div class="chart" id="chart4"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Granger 因果检验</h3>
+        <div class="sub">检验 A 是否为 B 的先行驱动因素，以及反向</div>
+        <div class="chart" id="chart5"></div>
+      </div>
+      <div class="card">
+        <h3>描述统计对比</h3>
+        <div class="sub">均值、标准差、变异系数、偏度、极值</div>
+        <div class="chart" id="chart6"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:18px">
+      <h3>指标明细与检验结果</h3>
+      <div class="sub">逐期数值与全部统计量</div>
+      <div style="overflow-x:auto"><table id="tblDetail"></table></div>
+    </div>
+    <div class="card" style="margin-bottom:18px">
+      <h3>Granger 因果检验明细</h3>
+      <div class="sub">F 统计量与 p 值，双向对照</div>
+      <div style="overflow-x:auto"><table id="tblGranger"></table></div>
+    </div>
+  </div>
+  <footer>
+    数据来源：Mysteel MBI · 统计引擎为纯前端实现（Pearson / Spearman / 互信息 / Granger / 回归 / 滞后与滚动相关）<br>
+    数值已与 scipy · statsmodels 逐项对齐（误差 &lt; 1e-9）· 全部计算在浏览器本地完成
+  </footer>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
